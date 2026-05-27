@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>燈具 Pattern Studio</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #1a1d23;
+    --panel-2: #22262e;
+    --line: #2e333d;
+    --text: #e8eaed;
+    --text-dim: #9aa0a6;
+    --accent: #ffcc66;
+    --accent-2: #66b3ff;
+    --warn: #ff6b6b;
+    --ok: #6dd58c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; font-family: -apple-system, "Noto Sans TC", "PingFang TC", sans-serif; background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
+  body { display: grid; grid-template-columns: 300px 1fr 360px; grid-template-rows: 48px 1fr; height: 100vh; overflow: hidden; }
+
+  header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 14px; font-weight: 600; letter-spacing: 0.02em; }
+  header .subtle { font-size: 12px; color: var(--text-dim); }
+
+  aside { background: var(--panel); overflow-y: auto; padding: 16px; border-right: 1px solid var(--line); }
+  aside.right { border-right: none; border-left: 1px solid var(--line); }
+
+  .group { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+  .group:last-child { border-bottom: none; }
+  .group h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 10px; font-weight: 600; }
+
+  .row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+  .row label { font-size: 12px; color: var(--text-dim); display: flex; justify-content: space-between; }
+  .row label span.val { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .row input[type=range] { width: 100%; accent-color: var(--accent); }
+  .row input.val-input {
+    width: 64px; padding: 2px 4px; background: var(--panel-2); color: var(--accent);
+    border: 1px solid var(--line); border-radius: 3px; font-family: inherit;
+    font-size: 12px; font-variant-numeric: tabular-nums; text-align: right;
+  }
+  .row input.val-input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  .row .label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .row .label-row .unit { color: var(--text-dim); font-size: 11px; }
+
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .seg.cols2 { grid-template-columns: repeat(2, 1fr); }
+  .seg button { background: var(--panel-2); color: var(--text-dim); border: 1px solid var(--line); padding: 6px 4px; border-radius: 4px; font-size: 11px; cursor: pointer; font-family: inherit; line-height: 1.2; }
+  .seg button.active { background: var(--accent); color: #1a1a1a; border-color: var(--accent); font-weight: 600; }
+
+  main { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; background: var(--bg); overflow: hidden; }
+  #stage-wrap { background: #1a1d23; border-radius: 8px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); position: relative; }
+  #stage { display: block; }
+  #stage path.border-only { fill: none; stroke: var(--text); stroke-width: 0.3; }
+  #stage path.piece { fill: rgba(255, 204, 102, 0.22); stroke: var(--accent); stroke-width: 0.18; fill-rule: evenodd; }
+  #stage .mech-outline { fill: none; stroke: var(--warn); stroke-width: 0.25; opacity: 0.9; }
+  #stage .mech-zone { fill: none; stroke: var(--warn); stroke-width: 0.15; stroke-dasharray: 0.6 0.6; opacity: 0.4; }
+  #stage .safe-zone { fill: none; stroke: var(--accent-2); stroke-width: 0.1; stroke-dasharray: 0.4 0.4; opacity: 0.3; }
+  #stage .image-outline-ghost { fill: none; stroke: var(--text-dim); stroke-width: 0.15; stroke-dasharray: 0.8 0.4; opacity: 0.5; }
+  #stage .dim { stroke: var(--accent-2); stroke-width: 0.12; fill: none; opacity: 0.85; }
+  #stage .dim-arrow { fill: var(--accent-2); stroke: none; opacity: 0.85; }
+  #stage .dim-text { fill: var(--accent-2); font-family: -apple-system, sans-serif; font-size: 3.2px; font-weight: 600; text-anchor: middle; dominant-baseline: middle; paint-order: stroke; stroke: var(--bg); stroke-width: 0.8px; stroke-linejoin: round; }
+
+  .stats { display: flex; gap: 14px; margin-top: 10px; font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .stats span b { color: var(--text); font-weight: 600; }
+  .warn-line { margin-top: 6px; font-size: 11px; color: var(--warn); min-height: 14px; }
+  .ok-line { color: var(--ok) !important; }
+
+  .ai-box { background: var(--panel-2); border-radius: 6px; padding: 12px; }
+  .ai-box label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; display: block; margin-bottom: 8px; }
+  .ai-box textarea { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 8px; font-family: inherit; font-size: 13px; resize: vertical; min-height: 56px; }
+  .ai-box .examples { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  .ai-box .examples button { background: transparent; color: var(--text-dim); border: 1px solid var(--line); padding: 3px 8px; border-radius: 12px; font-size: 11px; cursor: pointer; font-family: inherit; }
+  .ai-box .examples button:hover { color: var(--text); border-color: var(--text-dim); }
+  .ai-box .file-drop { border: 1.5px dashed var(--line); border-radius: 4px; padding: 18px; text-align: center; color: var(--text-dim); font-size: 12px; cursor: pointer; transition: all 0.15s; }
+  .ai-box .file-drop:hover, .ai-box .file-drop.over { border-color: var(--accent); color: var(--accent); }
+
+  .img-preview { background: white; border-radius: 4px; padding: 4px; display: flex; justify-content: center; align-items: center; min-height: 100px; max-height: 200px; overflow: hidden; }
+  .img-preview img { max-width: 100%; max-height: 192px; object-fit: contain; }
+
+  button.primary { width: 100%; padding: 10px; background: var(--accent); color: #1a1a1a; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-family: inherit; font-size: 13px; margin-top: 8px; }
+  button.primary:hover { background: #ffd680; }
+  button.primary:disabled { background: var(--panel-2); color: var(--text-dim); cursor: not-allowed; }
+  button.secondary { width: 100%; padding: 9px; background: transparent; color: var(--text); border: 1px solid var(--line); border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 12px; }
+  button.secondary:hover { background: var(--panel-2); }
+
+  .ai-status { font-size: 11px; color: var(--text-dim); margin-top: 8px; min-height: 14px; }
+  .ai-status.err { color: var(--warn); }
+  .ai-status.ok { color: var(--ok); }
+  .ai-status.busy { color: var(--accent-2); }
+
+  .export-box { display: flex; flex-direction: column; gap: 6px; }
+
+  .dpad { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 28px); gap: 3px; max-width: 130px; }
+  .dpad button { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 14px; padding: 0; line-height: 1; }
+  .dpad button:hover { background: var(--accent); color: #1a1a1a; }
+  .dpad button:active { transform: scale(0.92); }
+  .dpad .dpad-center { font-size: 11px; }
+  .dpad .empty { visibility: hidden; pointer-events: none; }
+  .dpad-hint { font-size: 10px; color: var(--text-dim); margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🪔 燈具 Pattern Studio <span class="subtle">— 圖像 × 機構限制 × DXF</span></h1>
+  <div><span class="subtle">Anature Life Lab Workshop</span></div>
+</header>
+
+<!-- ============== LEFT PANEL ============== -->
+<aside class="left">
+
+  <div class="group">
+    <h2>📐 尺寸限制</h2>
+    <div class="row">
+      <label>最大寬度 <span class="val" id="v-w">90 mm</span></label>
+      <input type="range" id="r-w" min="30" max="90" value="90" step="1">
+    </div>
+    <div class="row">
+      <label>最大高度 <span class="val" id="v-h">90 mm</span></label>
+      <input type="range" id="r-h" min="50" max="180" value="90" step="1">
+    </div>
+    <div style="font-size:10px;color:var(--text-dim);margin-top:6px">Pattern 自動依比例縮放、外輪廓由 pattern 形狀生成</div>
+  </div>
+
+  <div class="group">
+    <h2>⚙️ 核心機構（可調）</h2>
+    <div class="row">
+      <div class="label-row">
+        <label>孔 寬</label>
+        <span><input type="number" class="val-input" id="i-mhw" min="0.5" max="10" step="0.01" value="3"><span class="unit"> mm</span></span>
+      </div>
+      <input type="range" id="r-mhw" min="0.5" max="10" value="3" step="0.01">
+    </div>
+    <div class="row">
+      <div class="label-row">
+        <label>孔 高</label>
+        <span><input type="number" class="val-input" id="i-mhh" min="0.5" max="10" step="0.01" value="3"><span class="unit"> mm</span></span>
+      </div>
+      <input type="range" id="r-mhh" min="0.5" max="10" value="3" step="0.01">
+    </div>
+    <div class="row">
+      <div class="label-row">
+        <label>兩孔邊到邊間距</label>
+        <span><input type="number" class="val-input" id="i-meg" min="0" max="20" step="0.01" value="6"><span class="unit"> mm</span></span>
+      </div>
+      <input type="range" id="r-meg" min="0" max="20" value="6" step="0.01">
+    </div>
+    <div class="row">
+      <div class="label-row">
+        <label>轉接機構淨空</label>
+        <span><input type="number" class="val-input" id="i-mko" min="0" max="20" step="0.01" value="8"><span class="unit"> mm</span></span>
+      </div>
+      <input type="range" id="r-mko" min="0" max="20" value="8" step="0.01">
+      <div style="font-size:10px;color:var(--text-dim);margin-top:2px">圓形淨空半徑、給轉接機構靠合用（避免轉接機構區域被切到）</div>
+    </div>
+    <div class="row">
+      <label>外圍輪廓 offset <span class="val" id="v-osm">2.0 mm</span></label>
+      <input type="range" id="r-osm" min="0" max="10" value="2" step="0.5">
+      <div style="font-size:10px;color:var(--text-dim);margin-top:2px">沿 pattern 外形描出輪廓、offset 外的區域強制留實心材料（不切）</div>
+    </div>
+    <div class="row">
+      <label>輻射支撐</label>
+      <div class="seg" id="seg-spokes" style="grid-template-columns: repeat(3, 1fr); gap: 4px">
+        <button data-v="0" class="active">無</button>
+        <button data-v="2">2 支</button>
+        <button data-v="4">4 支</button>
+      </div>
+      <div style="font-size:10px;color:var(--text-dim);margin-top:2px">放射狀材料條、連結中央與外框（同心圓/曼陀羅 pattern 建議開）</div>
+    </div>
+
+    <div class="row">
+      <label>位置偏移 <span class="val" id="v-mech">中心 (0, 0) mm</span></label>
+      <div class="dpad">
+        <button class="empty"></button>
+        <button data-mech="up" title="上移 1mm（Shift+5mm）">↑</button>
+        <button class="empty"></button>
+        <button data-mech="left" title="左移">←</button>
+        <button data-mech="center" class="dpad-center" title="回到中心">⊕</button>
+        <button data-mech="right" title="右移">→</button>
+        <button class="empty"></button>
+        <button data-mech="down" title="下移">↓</button>
+        <button class="empty"></button>
+      </div>
+      <div class="dpad-hint">按住 Shift 一次 5mm</div>
+    </div>
+  </div>
+
+</aside>
+
+<!-- ============== STAGE ============== -->
+<main>
+  <div id="stage-wrap">
+    <svg id="stage" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+  <div class="stats">
+    <span>Pattern 路徑: <b id="s-count">0</b></span>
+    <span>Border: <b id="s-size">90×90 mm</b></span>
+    <span>檔案類型: <b>DXF</b></span>
+  </div>
+  <div class="warn-line" id="warn-line">⬇ 先上傳圖片或用 AI 生成</div>
+  <div style="margin-top:8px;font-size:11px;color:var(--text-dim);">
+    <label style="cursor:pointer;user-select:none;">
+      <input type="checkbox" id="show-dims" style="vertical-align:middle;margin-right:4px;">
+      顯示尺寸標注（僅預覽用，不會出現在 DXF）
+    </label>
+  </div>
+</main>
+
+<!-- ============== RIGHT PANEL ============== -->
+<aside class="right">
+
+  <div class="group">
+    <h2>📷 圖像來源</h2>
+    <div class="seg cols2" id="seg-source" style="margin-bottom:10px">
+      <button data-v="upload" class="active">📤 上傳圖片</button>
+      <button data-v="generate">🤖 AI 生成</button>
+    </div>
+
+    <!-- Upload mode -->
+    <div id="src-upload" class="ai-box">
+      <div class="file-drop" id="img-drop">
+        點此或拖曳圖片進來
+        <input type="file" id="img-input" accept="image/*" hidden>
+      </div>
+      <div class="ai-status">建議：黑白幾何線條圖效果最好</div>
+    </div>
+
+    <!-- Generate mode -->
+    <div id="src-generate" class="ai-box" style="display:none">
+      <label>描述你要的圖案</label>
+      <textarea id="ai-gen-text" placeholder="例：六角蜂巢結構、層次曼陀羅、海浪波紋..."></textarea>
+      <div class="examples">
+        <button data-prompt="蜂巢 / 六角形重複">蜂巢</button>
+        <button data-prompt="曼陀羅 / 層次幾何">曼陀羅</button>
+        <button data-prompt="伊斯蘭瓷磚 / 八角對稱">伊斯蘭幾何</button>
+        <button data-prompt="向外擴散的水波紋">水波</button>
+        <button data-prompt="新藝術風植物線條 / 對稱">植物線條</button>
+        <button data-prompt="星座 / 點與連線">星空</button>
+      </div>
+      <button class="primary" id="btn-gen">🎨 生成圖片</button>
+      <div class="ai-status" id="gen-status">中文描述會由 Claude 改寫成英文後生圖（總共約 15-20 秒）</div>
+    </div>
+  </div>
+
+  <!-- Loaded image preview -->
+  <div class="group" id="img-loaded-group" style="display:none">
+    <h2>🖼️ 來源圖片</h2>
+    <div class="img-preview"><img id="img-preview-el" alt=""></div>
+    <button class="secondary" id="btn-clear-img" style="margin-top:8px">✕ 清除重選</button>
+  </div>
+
+  <!-- Processing controls (shown only when image loaded) -->
+  <div class="group" id="process-group" style="display:none">
+    <h2>⚡ 適配方式</h2>
+    <div class="seg cols2" id="seg-fit">
+      <button data-v="contain" class="active">保留比例</button>
+      <button data-v="cover">填滿裁切</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <label>雷切寬度 <span class="val" id="v-cb">0.0 mm</span></label>
+      <input type="range" id="r-cb" min="-2" max="2" value="0" step="0.1">
+      <div style="font-size:10px;color:var(--text-dim);margin-top:2px">兩條切割路徑之間、會被切掉的材料寬度</div>
+    </div>
+    <div class="row">
+      <label>結構簡化（最小特徵 mm）<span class="val" id="v-sm">0 mm</span></label>
+      <input type="range" id="r-sm" min="0" max="2" value="0" step="0.1">
+      <div style="font-size:10px;color:var(--text-dim);margin-top:2px">小於此尺寸的細節會被融合（避免易碎）</div>
+    </div>
+    <div class="ai-status" id="proc-status" style="margin-top:8px">—</div>
+  </div>
+
+  <div class="group export-box">
+    <h2>📥 輸出檔案</h2>
+    <button class="primary" id="btn-dxf">⬇ 下載 DXF（給雷切）</button>
+    <button class="secondary" id="btn-svg">⬇ 下載 SVG（預覽用）</button>
+    <button class="secondary" id="btn-reset">↺ 重設所有參數</button>
+  </div>
+
+</aside>
+
+<!-- Hidden processing canvas -->
+<canvas id="proc-canvas" style="display:none"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/imagetracerjs@1.2.6/imagetracer_v1.2.6.min.js"></script>
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const WORKER_URL = "https://lamp-pattern-ai.superqqming.workers.dev";
+const PX_PER_MM = 8;                  // canvas resolution for vectorization
+const BEZIER_SAMPLES = 6;             // segments per bezier curve for DXF
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+// ============================================================
+// STATE
+// ============================================================
+const state = {
+  showDimensions: false,
+  border: { w: 90, h: 90 },  // bounding-box constraint (the rectangular space the pattern must fit within)
+  mechanism: {
+    offsetX: 0, offsetY: 0,
+    holeWidth: 3, holeHeight: 3, edgeGap: 6,
+    transitionRadius: 8,     // mm — circular clear zone for the 轉接機構 (transition bracket) to mount
+    envelopeOffset: 2,       // mm — pattern's natural outer envelope is dilated by this; outside = forced solid material
+    spokes: 0                // 0 / 2 / 4 — radial structural spokes from center to outer ring
+  },
+  source: "upload",
+  fit: "contain",
+  simplify: 0,               // mm — pre-trace blur (0 = preserve thin lines; raise to merge adjacent cells)
+  cutBand: 0,                // mm — morphological dilation (+) / erosion (-) of cut band width
+  sourceImage: null,         // HTMLImageElement
+  vectorPaths: [],           // pattern paths (will be cut as holes)
+  envelopeContour: null      // traced polyline of the pattern's outer envelope (the actual lamp piece outline)
+};
+const DEFAULT_STATE = JSON.parse(JSON.stringify({ ...state, sourceImage: null }));
+
+// ============================================================
+// UTIL
+// ============================================================
+function $(id) { return document.getElementById(id); }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function setByPath(obj, path, val) {
+  const keys = path.split(".");
+  let cur = obj;
+  for (let i = 0; i < keys.length - 1; i++) cur = cur[keys[i]];
+  cur[keys[keys.length - 1]] = val;
+}
+function svgEl(name, attrs) {
+  const e = document.createElementNS(SVG_NS, name);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+// ============================================================
+// SLIDER + SEG BINDINGS
+// ============================================================
+function bindSlider(rangeId, valId, statePath, suffix, format, onChange) {
+  const r = $(rangeId), v = $(valId);
+  r.addEventListener("input", () => {
+    const num = parseFloat(r.value);
+    setByPath(state, statePath, num);
+    v.textContent = format ? format(num) : `${num} ${suffix}`;
+    if (onChange) onChange();
+    render();
+  });
+}
+
+// Slider + number-input pair, bidirectionally synced. Use when the parameter
+// needs precise typed entry (e.g. mech hole dimensions matching a real bracket).
+function bindSliderInput(rangeId, inputId, statePath, onChange) {
+  const r = $(rangeId), inp = $(inputId);
+  const min = parseFloat(r.min), max = parseFloat(r.max);
+  function apply(num) {
+    if (isNaN(num)) return;
+    setByPath(state, statePath, num);
+    if (onChange) onChange();
+    render();
+  }
+  r.addEventListener("input", () => {
+    const num = parseFloat(r.value);
+    inp.value = num;
+    apply(num);
+  });
+  inp.addEventListener("input", () => {
+    const num = parseFloat(inp.value);
+    if (isNaN(num)) return;
+    if (num >= min && num <= max) r.value = num;
+    apply(num);
+  });
+  inp.addEventListener("blur", () => {
+    let num = parseFloat(inp.value);
+    if (isNaN(num)) num = parseFloat(r.value);
+    num = Math.max(min, Math.min(max, num));
+    inp.value = num;
+    r.value = num;
+    apply(num);
+  });
+}
+function bindSeg(segId, statePath, onChange) {
+  $(segId).querySelectorAll("button[data-v]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      $(segId).querySelectorAll("button[data-v]").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      setByPath(state, statePath, btn.dataset.v);
+      if (onChange) onChange(btn.dataset.v);
+      render();
+    });
+  });
+}
+
+bindSlider("r-w", "v-w", "border.w", "mm", null, reprocessIfImage);
+bindSlider("r-h", "v-h", "border.h", "mm", null, reprocessIfImage);
+bindSliderInput("r-mhw", "i-mhw", "mechanism.holeWidth", reprocessIfImage);
+bindSliderInput("r-mhh", "i-mhh", "mechanism.holeHeight", reprocessIfImage);
+bindSliderInput("r-meg", "i-meg", "mechanism.edgeGap", reprocessIfImage);
+bindSliderInput("r-mko", "i-mko", "mechanism.transitionRadius", reprocessIfImage);
+bindSlider("r-osm", "v-osm", "mechanism.envelopeOffset", "mm", n => `${n.toFixed(1)} mm`, reprocessIfImage);
+
+$("seg-spokes").querySelectorAll("button[data-v]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    $("seg-spokes").querySelectorAll("button[data-v]").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    state.mechanism.spokes = parseInt(btn.dataset.v, 10);
+    reprocessIfImage();
+    render();
+  });
+});
+bindSlider("r-cb", "v-cb", "cutBand", "mm", n => (n > 0 ? `+${n.toFixed(1)} mm` : `${n.toFixed(1)} mm`), reprocessIfImage);
+bindSlider("r-sm", "v-sm", "simplify", "mm", null, reprocessIfImage);
+
+bindSeg("seg-source", "source", v => {
+  $("src-upload").style.display = v === "upload" ? "block" : "none";
+  $("src-generate").style.display = v === "generate" ? "block" : "none";
+});
+bindSeg("seg-fit", "fit", reprocessIfImage);
+
+function reprocessIfImage() {
+  if (state.sourceImage) {
+    clearTimeout(reprocessIfImage._t);
+    reprocessIfImage._t = setTimeout(processImage, 150);
+  }
+}
+
+// ============================================================
+// GEOMETRY HELPERS
+// ============================================================
+function boundsRectPath(b) {
+  return `M 0 0 L ${b.w} 0 L ${b.w} ${b.h} L 0 ${b.h} Z`;
+}
+
+function mechanismCenter(b, m) { return { x: b.w / 2 + m.offsetX, y: b.h / 2 + m.offsetY }; }
+function mechanismSpan(m) { return { w: m.holeWidth, h: 2 * m.holeHeight + m.edgeGap }; }
+function mechanismBBox(b, m) {
+  const c = mechanismCenter(b, m); const s = mechanismSpan(m);
+  return { x: c.x - s.w / 2, y: c.y - s.h / 2, w: s.w, h: s.h };
+}
+function mechanismBounds(b, m) {
+  // Constrain mech position so the holes stay inside the W×H bounding box.
+  const s = mechanismSpan(m);
+  return {
+    minOffsetX: -(b.w / 2 - s.w / 2),
+    maxOffsetX:  (b.w / 2 - s.w / 2),
+    minOffsetY: -(b.h / 2 - s.h / 2),
+    maxOffsetY:  (b.h / 2 - s.h / 2)
+  };
+}
+function clampMechanism(b, m) {
+  const bnd = mechanismBounds(b, m);
+  m.offsetX = clamp(m.offsetX, bnd.minOffsetX, bnd.maxOffsetX);
+  m.offsetY = clamp(m.offsetY, bnd.minOffsetY, bnd.maxOffsetY);
+}
+function mechanismHolePositions(b, m) {
+  const c = mechanismCenter(b, m);
+  const v = (m.edgeGap + m.holeHeight) / 2;
+  return [{ cx: c.x, cy: c.y - v }, { cx: c.x, cy: c.y + v }];
+}
+
+// ============================================================
+// IMAGE PROCESSING PIPELINE
+// ============================================================
+// Morphological dilation (radius > 0) or erosion (radius < 0) on a binary canvas.
+// Uses separable horizontal+vertical box passes — O(W*H) per direction.
+function morphologyBinary(ctx, W, H, radiusPx) {
+  if (radiusPx === 0) return;
+  const dilate = radiusPx > 0;
+  const r = Math.abs(radiusPx);
+
+  const imgData = ctx.getImageData(0, 0, W, H);
+  const data = imgData.data;
+  // Build mask of "target" pixels: dilate spreads black; erode spreads white
+  let src = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) {
+    const black = data[i * 4] < 128;
+    src[i] = (dilate ? black : !black) ? 1 : 0;
+  }
+
+  // Horizontal pass with sliding-window count
+  const horiz = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) {
+    let count = 0;
+    for (let dx = 0; dx <= r && dx < W; dx++) if (src[y * W + dx]) count++;
+    for (let x = 0; x < W; x++) {
+      horiz[y * W + x] = count > 0 ? 1 : 0;
+      if (x - r >= 0 && src[y * W + (x - r)]) count--;
+      if (x + r + 1 < W && src[y * W + (x + r + 1)]) count++;
+    }
+  }
+
+  // Vertical pass
+  const result = new Uint8Array(W * H);
+  for (let x = 0; x < W; x++) {
+    let count = 0;
+    for (let dy = 0; dy <= r && dy < H; dy++) if (horiz[dy * W + x]) count++;
+    for (let y = 0; y < H; y++) {
+      result[y * W + x] = count > 0 ? 1 : 0;
+      if (y - r >= 0 && horiz[(y - r) * W + x]) count--;
+      if (y + r + 1 < H && horiz[(y + r + 1) * W + x]) count++;
+    }
+  }
+
+  // Write back to canvas
+  for (let i = 0; i < W * H; i++) {
+    const finalBlack = dilate ? !!result[i] : !result[i];
+    const v = finalBlack ? 0 : 255;
+    data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = v;
+    data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(imgData, 0, 0);
+}
+
+// Convert binary line art into discrete enclosed holes.
+//
+// Input:  binary canvas (black = ink line, white = open space)
+// Output: binary canvas where every region "trapped inside a closed line" becomes
+//         a solid BLACK blob (a hole to cut), and everything else — line strokes
+//         and outside background — becomes WHITE (continuous material).
+//         Also returns the "patternMask" (1 = line stroke OR enclosed region) so
+//         downstream steps can compute the pattern's natural outer envelope.
+function convertLineArtToHoles(ctx, W, H) {
+  const imgData = ctx.getImageData(0, 0, W, H);
+  const d = imgData.data;
+  const N = W * H;
+
+  const wasLine = new Uint8Array(N);
+  for (let i = 0; i < N; i++) wasLine[i] = d[i * 4] < 128 ? 1 : 0;
+
+  // Force the 1-px border to non-line so flood-fill can always seed.
+  for (let x = 0; x < W; x++) { wasLine[x] = 0; wasLine[(H - 1) * W + x] = 0; }
+  for (let y = 0; y < H; y++) { wasLine[y * W] = 0; wasLine[y * W + (W - 1)] = 0; }
+
+  const outside = new Uint8Array(N);
+  const queue = new Int32Array(N);
+  let qHead = 0, qTail = 0;
+
+  function seed(idx) {
+    if (!wasLine[idx] && !outside[idx]) { outside[idx] = 1; queue[qTail++] = idx; }
+  }
+  for (let x = 0; x < W; x++) { seed(x); seed((H - 1) * W + x); }
+  for (let y = 0; y < H; y++) { seed(y * W); seed(y * W + (W - 1)); }
+
+  while (qHead < qTail) {
+    const idx = queue[qHead++];
+    const x = idx % W;
+    const y = (idx - x) / W;
+    if (x > 0)     { const ni = idx - 1; if (!wasLine[ni] && !outside[ni]) { outside[ni] = 1; queue[qTail++] = ni; } }
+    if (x < W - 1) { const ni = idx + 1; if (!wasLine[ni] && !outside[ni]) { outside[ni] = 1; queue[qTail++] = ni; } }
+    if (y > 0)     { const ni = idx - W; if (!wasLine[ni] && !outside[ni]) { outside[ni] = 1; queue[qTail++] = ni; } }
+    if (y < H - 1) { const ni = idx + W; if (!wasLine[ni] && !outside[ni]) { outside[ni] = 1; queue[qTail++] = ni; } }
+  }
+
+  const patternMask = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    const isOutside = outside[i];
+    const isHole = !wasLine[i] && !isOutside;
+    const v = isHole ? 0 : 255;
+    d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v;
+    d[i * 4 + 3] = 255;
+    patternMask[i] = isOutside ? 0 : 1;
+  }
+  ctx.putImageData(imgData, 0, 0);
+  return patternMask;
+}
+
+// Dilate a binary mask by `r` pixels using a separable square structuring element.
+// Same algorithm as morphologyBinary but operates on a Uint8Array directly.
+function dilateMask(mask, W, H, r) {
+  if (r <= 0) return mask;
+  const horiz = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) {
+    let count = 0;
+    for (let dx = 0; dx <= r && dx < W; dx++) if (mask[y * W + dx]) count++;
+    for (let x = 0; x < W; x++) {
+      horiz[y * W + x] = count > 0 ? 1 : 0;
+      if (x - r >= 0 && mask[y * W + (x - r)]) count--;
+      if (x + r + 1 < W && mask[y * W + (x + r + 1)]) count++;
+    }
+  }
+  const out = new Uint8Array(W * H);
+  for (let x = 0; x < W; x++) {
+    let count = 0;
+    for (let dy = 0; dy <= r && dy < H; dy++) if (horiz[dy * W + x]) count++;
+    for (let y = 0; y < H; y++) {
+      out[y * W + x] = count > 0 ? 1 : 0;
+      if (y - r >= 0 && horiz[(y - r) * W + x]) count--;
+      if (y + r + 1 < H && horiz[(y + r + 1) * W + x]) count++;
+    }
+  }
+  return out;
+}
+
+// Apply the pattern's natural outer envelope: erase any black (hole) pixels that
+// lie outside (patternMask dilated by `offsetPx`). The result is that holes stay
+// only within the pattern's natural shape + an adjustable safety margin, and the
+// surrounding region is guaranteed to be solid material. Returns the dilated mask
+// so the outer contour can be traced from it for use as the lamp piece outline.
+function applyOuterEnvelope(ctx, W, H, patternMask, offsetPx) {
+  const dilated = offsetPx > 0 ? dilateMask(patternMask, W, H, offsetPx) : patternMask;
+  const imgData = ctx.getImageData(0, 0, W, H);
+  const d = imgData.data;
+  const N = W * H;
+  for (let i = 0; i < N; i++) {
+    if (!dilated[i]) {
+      d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = 255;
+      d[i * 4 + 3] = 255;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+  return dilated;
+}
+
+// Trace the outer contour of a binary mask by rendering it onto a temporary
+// canvas and running ImageTracer. Returns the largest closed polyline (in mm),
+// which is the natural outline of the pattern's envelope — used as the lamp
+// piece's actual outer cut path.
+function traceEnvelopeContour(mask, W, H) {
+  const tmp = document.createElement("canvas");
+  tmp.width = W; tmp.height = H;
+  const tctx = tmp.getContext("2d");
+  const imgData = tctx.createImageData(W, H);
+  const N = W * H;
+  for (let i = 0; i < N; i++) {
+    const v = mask[i] ? 0 : 255;
+    imgData.data[i * 4] = imgData.data[i * 4 + 1] = imgData.data[i * 4 + 2] = v;
+    imgData.data[i * 4 + 3] = 255;
+  }
+  tctx.putImageData(imgData, 0, 0);
+  let traced;
+  try {
+    traced = ImageTracer.imagedataToTracedata(imgData, {
+      numberofcolors: 2,
+      pathomit: 50,
+      ltres: 1, qtres: 1,
+      rightangleenhance: false,
+      roundcoords: 1, blurradius: 0,
+      strokewidth: 1, linefilter: false
+    });
+  } catch (e) { return null; }
+
+  let largest = null, largestArea = 0;
+  for (let li = 0; li < traced.layers.length; li++) {
+    const color = traced.palette[li];
+    const brightness = (color.r + color.g + color.b) / 3;
+    if (brightness >= 128) continue;
+    for (const p of traced.layers[li]) {
+      const pts = pathToPolyline(p).map(pt => ({
+        x: pt.x / PX_PER_MM,
+        y: pt.y / PX_PER_MM
+      }));
+      if (pts.length < 3) continue;
+      const bb = polylineBBox(pts);
+      const area = bb.w * bb.h;
+      if (area > largestArea) { largestArea = area; largest = pts; }
+    }
+  }
+  return largest;
+}
+
+function loadImageFromURL(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("圖片載入失敗"));
+    img.src = url;
+  });
+}
+
+function quadBezier(p0, p1, p2, t) {
+  const mt = 1 - t;
+  return { x: mt*mt*p0.x + 2*mt*t*p1.x + t*t*p2.x, y: mt*mt*p0.y + 2*mt*t*p1.y + t*t*p2.y };
+}
+function cubicBezier(p0, p1, p2, p3, t) {
+  const mt = 1 - t;
+  return {
+    x: mt*mt*mt*p0.x + 3*mt*mt*t*p1.x + 3*mt*t*t*p2.x + t*t*t*p3.x,
+    y: mt*mt*mt*p0.y + 3*mt*mt*t*p1.y + 3*mt*t*t*p2.y + t*t*t*p3.y
+  };
+}
+
+function pathToPolyline(path, samples = BEZIER_SAMPLES) {
+  if (!path.segments || path.segments.length === 0) return [];
+  const pts = [];
+  const first = path.segments[0];
+  pts.push({ x: first.x1, y: first.y1 });
+  for (const seg of path.segments) {
+    if (seg.type === "L") {
+      pts.push({ x: seg.x2, y: seg.y2 });
+    } else if (seg.type === "Q") {
+      const p0 = pts[pts.length - 1];
+      const p1 = { x: seg.x2, y: seg.y2 };
+      const p2 = { x: seg.x3, y: seg.y3 };
+      for (let i = 1; i <= samples; i++) pts.push(quadBezier(p0, p1, p2, i / samples));
+    } else if (seg.type === "B") {
+      const p0 = pts[pts.length - 1];
+      const p1 = { x: seg.x2, y: seg.y2 };
+      const p2 = { x: seg.x3, y: seg.y3 };
+      const p3 = { x: seg.x4, y: seg.y4 };
+      for (let i = 1; i <= samples; i++) pts.push(cubicBezier(p0, p1, p2, p3, i / samples));
+    }
+  }
+  return pts;
+}
+
+function pointsToSVGD(pts) {
+  if (pts.length === 0) return "";
+  let d = `M ${pts[0].x.toFixed(3)} ${pts[0].y.toFixed(3)}`;
+  for (let i = 1; i < pts.length; i++) d += ` L ${pts[i].x.toFixed(3)} ${pts[i].y.toFixed(3)}`;
+  d += " Z";
+  return d;
+}
+
+async function processImage() {
+  if (!state.sourceImage) return;
+  const proc = $("proc-status");
+  proc.textContent = "處理中...";
+  proc.className = "ai-status busy";
+  await new Promise(r => setTimeout(r, 10));
+
+  const { border, mechanism } = state;
+  clampMechanism(border, mechanism);
+
+  const canvas = $("proc-canvas");
+  const W = Math.round(border.w * PX_PER_MM);
+  const H = Math.round(border.h * PX_PER_MM);
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+  // 1. White background
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, W, H);
+
+  // 2. (No shape clip — pattern fills the W×H bounding box; outline comes from envelope tracing below)
+
+  // 3. Draw source image (contain or cover) — apply blur if simplify > 0
+  const img = state.sourceImage;
+  const scale = state.fit === "cover"
+    ? Math.max(W / img.width, H / img.height)
+    : Math.min(W / img.width, H / img.height);
+  const dw = img.width * scale, dh = img.height * scale;
+  const dx = (W - dw) / 2, dy = (H - dh) / 2;
+  const simplifyPx = (state.simplify || 0) * PX_PER_MM;
+  if (simplifyPx > 0) ctx.filter = `blur(${simplifyPx}px)`;
+  ctx.drawImage(img, dx, dy, dw, dh);
+  ctx.filter = "none";
+
+  // 4. Threshold to B&W (fixed 128 — fine adjustments via cutBand morphology below)
+  const imgData = ctx.getImageData(0, 0, W, H);
+  const d = imgData.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    const bw = gray < 128 ? 0 : 255;
+    d[i] = d[i + 1] = d[i + 2] = bw;
+    d[i + 3] = 255;
+  }
+  ctx.putImageData(imgData, 0, 0);
+
+  // 4b. Apply morphological dilation/erosion (cut band width control)
+  const cutBandPx = Math.round((state.cutBand || 0) * PX_PER_MM);
+  if (cutBandPx !== 0) morphologyBinary(ctx, W, H, cutBandPx);
+
+  // 5. Convert line art to discrete enclosed holes.
+  //    Flood-fill from canvas edges to identify "outside" background, then:
+  //    - regions enclosed by closed lines  → BLACK (become discrete holes)
+  //    - line strokes + outside background → WHITE (continuous material)
+  //    Returns the patternMask (1 where the source had any ink, 0 outside) for
+  //    the envelope step to compute the pattern's natural outer outline.
+  const patternMask = convertLineArtToHoles(ctx, W, H);
+
+  // 6. Transition mechanism keepout — paint a WHITE circle over the mech area
+  //    to erase any holes there, leaving solid material for the 轉接機構 bracket
+  //    to mount onto via the 2 small holes.
+  const tr = mechanism.transitionRadius || 0;
+  const mc = mechanismCenter(border, mechanism);
+  const cxPx = mc.x * PX_PER_MM;
+  const cyPx = mc.y * PX_PER_MM;
+  ctx.fillStyle = "white";
+  if (tr > 0) {
+    ctx.beginPath();
+    ctx.arc(cxPx, cyPx, tr * PX_PER_MM, 0, 2 * Math.PI);
+    ctx.fill();
+  }
+
+  // 6b. Radial structural spokes — paint WHITE strips from center outward.
+  //     Spokes preserve material along their length, connecting the central hub
+  //     to the outer safe margin ring. Useful for concentric/radial patterns
+  //     where the inner zone would otherwise detach from the outer zone.
+  const spokeCount = mechanism.spokes || 0;
+  if (spokeCount > 0) {
+    const spokeWidthPx = 3 * PX_PER_MM;
+    const farReachPx = Math.max(W, H) * 1.5;
+    const startRadiusPx = Math.max(tr, 0) * PX_PER_MM;
+    const angleStep = 2 * Math.PI / spokeCount;
+    for (let i = 0; i < spokeCount; i++) {
+      const angle = -Math.PI / 2 + i * angleStep;
+      ctx.save();
+      ctx.translate(cxPx, cyPx);
+      ctx.rotate(angle);
+      ctx.fillRect(startRadiusPx, -spokeWidthPx / 2, farReachPx, spokeWidthPx);
+      ctx.restore();
+    }
+  }
+
+  // 6c. Outer envelope — trace the pattern's natural outer outline (the union of
+  //     line strokes + enclosed cells from the source, dilated by the offset) and
+  //     erase any holes outside it. This produces a continuous solid material
+  //     ring that follows the pattern's actual shape instead of the rectangular
+  //     border, so circular/mandala patterns get a circular frame, etc.
+  const envelopeOffsetPx = Math.round((mechanism.envelopeOffset || 0) * PX_PER_MM);
+  const envelopeMask = applyOuterEnvelope(ctx, W, H, patternMask, envelopeOffsetPx);
+
+  // 6d. Trace the envelope's outer contour — this is the lamp piece's actual outer
+  //     outline, replacing the legacy rectangular/rounded/hex border. It follows
+  //     the natural shape of the source pattern + the chosen offset.
+  state.envelopeContour = traceEnvelopeContour(envelopeMask, W, H);
+
+  // 7. Vectorize
+  const finalData = ctx.getImageData(0, 0, W, H);
+  let traced;
+  try {
+    traced = ImageTracer.imagedataToTracedata(finalData, {
+      numberofcolors: 2,
+      pathomit: 8,
+      ltres: 1,
+      qtres: 1,
+      rightangleenhance: false,
+      roundcoords: 1,
+      blurradius: 0,
+      strokewidth: 1,
+      linefilter: false
+    });
+  } catch (e) {
+    proc.textContent = "向量化失敗：" + e.message;
+    proc.className = "ai-status err";
+    return;
+  }
+
+  // 8. Extract black-region paths as hole cuts.
+  //    After the line→hole conversion, every black blob is a discrete enclosed
+  //    region from the source — each becomes one clean cut path.
+  const tracedPaths = [];
+  for (let li = 0; li < traced.layers.length; li++) {
+    const color = traced.palette[li];
+    const brightness = (color.r + color.g + color.b) / 3;
+    if (brightness >= 128) continue;
+    for (const p of traced.layers[li]) {
+      const pts = pathToPolyline(p).map(pt => ({
+        x: pt.x / PX_PER_MM,
+        y: pt.y / PX_PER_MM
+      }));
+      if (pts.length < 3) continue;
+      tracedPaths.push(pts);
+    }
+  }
+
+  state.vectorPaths = tracedPaths;
+
+  proc.textContent = `✓ 完成（${state.vectorPaths.length} 個孔洞）`;
+  proc.className = "ai-status ok";
+
+  render();
+}
+
+function polylineBBox(pts) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of pts) {
+    if (p.x < minX) minX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y > maxY) maxY = p.y;
+  }
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function render() {
+  const { border, mechanism, vectorPaths } = state;
+  const svg = $("stage");
+  const padMm = state.showDimensions ? 13 : 4;
+  const maxDisplay = 480;
+  const scale = Math.min(maxDisplay / (border.w + 2 * padMm), maxDisplay / (border.h + 2 * padMm));
+  svg.setAttribute("width", (border.w + 2 * padMm) * scale);
+  svg.setAttribute("height", (border.h + 2 * padMm) * scale);
+  svg.setAttribute("viewBox", `${-padMm} ${-padMm} ${border.w + 2 * padMm} ${border.h + 2 * padMm}`);
+  svg.innerHTML = "";
+
+  // Outer outline = traced envelope contour (the natural shape of the pattern + offset).
+  // Falls back to the W×H bounding rect before any image has been processed.
+  const outlineD = state.envelopeContour
+    ? pointsToSVGD(state.envelopeContour)
+    : boundsRectPath(border);
+
+  clampMechanism(border, mechanism);
+  updateMechDisplay();
+
+  // Faint W×H reference rectangle (the bounding-box constraint, not a cut)
+  svg.appendChild(svgEl("path", { d: boundsRectPath(border), class: "image-outline-ghost" }));
+
+  // Combined piece path: outer envelope + holes + mech holes with fill-rule evenodd
+  let combinedD = outlineD;
+  for (const pts of vectorPaths) combinedD += " " + pointsToSVGD(pts);
+  const hw = mechanism.holeWidth / 2, hh = mechanism.holeHeight / 2;
+  mechanismHolePositions(border, mechanism).forEach(h => {
+    combinedD += ` M ${(h.cx - hw).toFixed(3)} ${(h.cy - hh).toFixed(3)}` +
+                 ` L ${(h.cx + hw).toFixed(3)} ${(h.cy - hh).toFixed(3)}` +
+                 ` L ${(h.cx + hw).toFixed(3)} ${(h.cy + hh).toFixed(3)}` +
+                 ` L ${(h.cx - hw).toFixed(3)} ${(h.cy + hh).toFixed(3)} Z`;
+  });
+  svg.appendChild(svgEl("path", { d: combinedD, class: "piece" }));
+
+  // Transition mechanism footprint — dashed circle showing the clear zone for the 轉接機構
+  const tr = mechanism.transitionRadius || 0;
+  if (tr > 0) {
+    const mc = mechanismCenter(border, mechanism);
+    svg.appendChild(svgEl("circle", {
+      cx: mc.x, cy: mc.y, r: tr,
+      class: "mech-zone"
+    }));
+  }
+
+  // Mech holes — thin red outline only (identification overlay; fill comes from evenodd above)
+  mechanismHolePositions(border, mechanism).forEach(h => {
+    svg.appendChild(svgEl("rect", {
+      x: h.cx - hw, y: h.cy - hh,
+      width: mechanism.holeWidth, height: mechanism.holeHeight,
+      class: "mech-outline"
+    }));
+  });
+
+  if (state.showDimensions) drawDimensions(svg);
+
+  $("s-count").textContent = vectorPaths.length;
+  $("s-size").textContent = `${border.w}×${border.h} mm`;
+  validateSafety();
+}
+
+function validateSafety() {
+  const line = $("warn-line");
+  if (!state.sourceImage) {
+    line.textContent = "⬇ 先上傳圖片或用 AI 生成";
+    line.className = "warn-line";
+    return;
+  }
+  if (state.vectorPaths.length === 0) {
+    line.textContent = "⚠ 沒抓到任何 pattern —— 圖片可能太淡或全白";
+    line.className = "warn-line";
+    return;
+  }
+  line.textContent = `✓ 通過雷切檢查（${state.vectorPaths.length} 條路徑）`;
+  line.className = "warn-line ok-line";
+}
+
+// ============================================================
+// DIMENSION ANNOTATIONS
+// ============================================================
+function dimLine(g, x1, y1, x2, y2) {
+  g.appendChild(svgEl("line", { x1, y1, x2, y2, class: "dim" }));
+}
+function dimArrow(g, x, y, dir) {
+  const s = 0.7;
+  let pts;
+  if (dir === "right") pts = `${x},${y} ${x - s},${y - s/2} ${x - s},${y + s/2}`;
+  else if (dir === "left") pts = `${x},${y} ${x + s},${y - s/2} ${x + s},${y + s/2}`;
+  else if (dir === "down") pts = `${x},${y} ${x - s/2},${y - s} ${x + s/2},${y - s}`;
+  else if (dir === "up") pts = `${x},${y} ${x - s/2},${y + s} ${x + s/2},${y + s}`;
+  g.appendChild(svgEl("polygon", { points: pts, class: "dim-arrow" }));
+}
+function dimText(g, x, y, label) {
+  const t = svgEl("text", { x, y, class: "dim-text" });
+  t.textContent = label;
+  g.appendChild(t);
+}
+function dimHoriz(g, x1, x2, extY, dimY, label) {
+  dimLine(g, x1, extY, x1, dimY);
+  dimLine(g, x2, extY, x2, dimY);
+  dimLine(g, x1, dimY, x2, dimY);
+  dimArrow(g, x1, dimY, "right");
+  dimArrow(g, x2, dimY, "left");
+  dimText(g, (x1 + x2) / 2, dimY + (dimY > extY ? 1.8 : -1.8), label);
+}
+function dimVert(g, y1, y2, extX, dimX, label) {
+  dimLine(g, extX, y1, dimX, y1);
+  dimLine(g, extX, y2, dimX, y2);
+  dimLine(g, dimX, y1, dimX, y2);
+  dimArrow(g, dimX, y1, "down");
+  dimArrow(g, dimX, y2, "up");
+  dimText(g, dimX + (dimX > extX ? 2.2 : -2.2), (y1 + y2) / 2, label);
+}
+function drawDimensions(svg) {
+  const { border, mechanism } = state;
+  const g = svgEl("g", { class: "dim-group" });
+  dimHoriz(g, 0, border.w, -0.5, -5, border.w.toFixed(1));
+  dimVert(g, 0, border.h, border.w + 0.5, border.w + 5, border.h.toFixed(1));
+
+  const [upper, lower] = mechanismHolePositions(border, mechanism);
+  const hw = mechanism.holeWidth / 2, hh = mechanism.holeHeight / 2;
+  dimHoriz(g, upper.cx - hw, upper.cx + hw, upper.cy - hh - 0.3, upper.cy - hh - 4, mechanism.holeWidth.toFixed(1));
+  dimVert(g, upper.cy - hh, upper.cy + hh, upper.cx - hw - 0.3, upper.cx - hw - 5, mechanism.holeHeight.toFixed(1));
+  dimVert(g, lower.cy - hh, lower.cy + hh, lower.cx - hw - 0.3, lower.cx - hw - 5, mechanism.holeHeight.toFixed(1));
+  dimVert(g, upper.cy + hh, lower.cy - hh, upper.cx + hw + 0.3, upper.cx + hw + 5, mechanism.edgeGap.toFixed(1));
+
+  svg.appendChild(g);
+}
+
+// ============================================================
+// DXF EXPORT
+// ============================================================
+function toDXF() {
+  const { border, mechanism, vectorPaths } = state;
+  clampMechanism(border, mechanism);
+
+  const lines = [];
+  lines.push("0", "SECTION", "2", "HEADER",
+             "9", "$INSUNITS", "70", "4",
+             "0", "ENDSEC");
+  lines.push("0", "SECTION", "2", "ENTITIES");
+
+  // Border = traced envelope contour (the lamp piece's actual outer cut path).
+  // Falls back to the W×H bounding rectangle if no pattern has been processed yet.
+  if (state.envelopeContour && state.envelopeContour.length >= 3) {
+    const outlinePts = state.envelopeContour.map(p => [p.x, border.h - p.y]);
+    appendPolyline(lines, outlinePts, true, "BORDER");
+  } else {
+    appendPolyline(lines, [[0, border.h], [border.w, border.h], [border.w, 0], [0, 0]], true, "BORDER");
+  }
+
+  // Mechanism (flip Y for DXF Y-up)
+  const hw = mechanism.holeWidth / 2, hh = mechanism.holeHeight / 2;
+  mechanismHolePositions(border, mechanism).forEach(h => {
+    appendPolyline(lines, [
+      [h.cx - hw, border.h - (h.cy - hh)],
+      [h.cx + hw, border.h - (h.cy - hh)],
+      [h.cx + hw, border.h - (h.cy + hh)],
+      [h.cx - hw, border.h - (h.cy + hh)]
+    ], true, "MECHANISM");
+  });
+
+  // Pattern paths (flip Y) — all closed polylines
+  for (const pts of vectorPaths) {
+    const dxfPts = pts.map(p => [p.x, border.h - p.y]);
+    appendPolyline(lines, dxfPts, true, "PATTERN");
+  }
+
+  lines.push("0", "ENDSEC", "0", "EOF");
+  return lines.join("\n");
+}
+
+function appendPolyline(lines, pts, closed, layer) {
+  lines.push("0", "POLYLINE", "8", layer, "66", "1", "70", closed ? "1" : "0");
+  pts.forEach(([x, y]) => {
+    lines.push("0", "VERTEX", "8", layer, "10", x.toFixed(4), "20", y.toFixed(4), "30", "0");
+  });
+  lines.push("0", "SEQEND");
+}
+
+function download(filename, content, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 100);
+}
+
+$("btn-dxf").addEventListener("click", () => {
+  if (!state.sourceImage) { alert("請先上傳圖片或用 AI 生成"); return; }
+  download(`lamp-pattern_${state.border.w}x${state.border.h}_${Date.now()}.dxf`, toDXF(), "application/dxf");
+});
+
+$("btn-svg").addEventListener("click", () => {
+  const stage = $("stage").cloneNode(true);
+  stage.setAttribute("xmlns", SVG_NS);
+  const styleEl = document.createElement("style");
+  styleEl.textContent = `.border{fill:none;stroke:#000;stroke-width:0.3}.mech{fill:#000}.pattern{fill:none;stroke:#000;stroke-width:0.15}.mech-zone,.safe-zone{display:none}`;
+  stage.insertBefore(styleEl, stage.firstChild);
+  download(`lamp-pattern_${state.border.w}x${state.border.h}_${Date.now()}.svg`,
+    `<?xml version="1.0"?>\n${stage.outerHTML}`, "image/svg+xml");
+});
+
+// ============================================================
+// MECHANISM D-PAD
+// ============================================================
+document.querySelectorAll("[data-mech]").forEach(btn => {
+  btn.addEventListener("click", (e) => {
+    const dir = btn.dataset.mech;
+    if (dir === "center") {
+      state.mechanism.offsetX = 0;
+      state.mechanism.offsetY = 0;
+    } else {
+      const step = e.shiftKey ? 5 : 1;
+      if (dir === "up") state.mechanism.offsetY -= step;
+      if (dir === "down") state.mechanism.offsetY += step;
+      if (dir === "left") state.mechanism.offsetX -= step;
+      if (dir === "right") state.mechanism.offsetX += step;
+    }
+    clampMechanism(state.border, state.mechanism);
+    updateMechDisplay();
+    reprocessIfImage();
+    render();
+  });
+});
+
+function updateMechDisplay() {
+  const { offsetX: x, offsetY: y } = state.mechanism;
+  const fmt = (n) => (n > 0 ? `+${n}` : `${n}`);
+  $("v-mech").textContent = (x === 0 && y === 0)
+    ? "中心 (0, 0) mm"
+    : `(${fmt(x.toFixed(1))}, ${fmt(y.toFixed(1))}) mm`;
+}
+
+// ============================================================
+// IMAGE INPUT — UPLOAD
+// ============================================================
+const drop = $("img-drop"), fileInput = $("img-input");
+drop.addEventListener("click", () => fileInput.click());
+drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", e => {
+  e.preventDefault(); drop.classList.remove("over");
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener("change", e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const img = await loadImageFromURL(e.target.result);
+      onImageReady(e.target.result, img);
+    } catch (err) {
+      alert("圖片載入失敗：" + err.message);
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function onImageReady(dataURL, img) {
+  state.sourceImage = img;
+  $("img-preview-el").src = dataURL;
+  $("img-loaded-group").style.display = "block";
+  $("process-group").style.display = "block";
+  processImage();
+}
+
+$("btn-clear-img").addEventListener("click", () => {
+  state.sourceImage = null;
+  state.vectorPaths = [];
+  state.envelopeContour = null;
+  $("img-preview-el").src = "";
+  $("img-loaded-group").style.display = "none";
+  $("process-group").style.display = "none";
+  $("img-input").value = "";
+  render();
+});
+
+// ============================================================
+// IMAGE INPUT — AI GENERATE
+// ============================================================
+document.querySelectorAll("#src-generate .examples button").forEach(b => {
+  b.addEventListener("click", () => { $("ai-gen-text").value = b.dataset.prompt; });
+});
+
+$("btn-gen").addEventListener("click", async () => {
+  const userPrompt = $("ai-gen-text").value.trim();
+  const status = $("gen-status");
+  const btn = $("btn-gen");
+  if (!userPrompt) { status.textContent = "請先描述"; status.className = "ai-status err"; return; }
+
+  btn.disabled = true;
+
+  try {
+    // Step 1: Claude enhances the user's description
+    let finalPrompt = userPrompt;
+    let enhancedNote = "";
+    const claudeInput = userPrompt;
+
+    status.textContent = "✨ Claude 改寫描述中...";
+    status.className = "ai-status busy";
+    try {
+      const enhResp = await fetch(WORKER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "enhance-prompt", input: claudeInput })
+      });
+      if (enhResp.ok) {
+        const enhData = await enhResp.json();
+        if (enhData.enhanced && !enhData.error) {
+          finalPrompt = enhData.enhanced;
+          enhancedNote = `（Claude 譯：${finalPrompt.length > 40 ? finalPrompt.slice(0, 40) + "…" : finalPrompt}）`;
+        }
+      }
+    } catch (e) {
+      // If Claude enhancement fails, fall back to user's original prompt — non-fatal
+      console.warn("Claude enhancement failed, using raw prompt:", e);
+    }
+
+    // Step 2: gpt-image-1 generates the image
+    status.textContent = `🎨 生成圖片中...（約 15 秒）${enhancedNote}`;
+    status.className = "ai-status busy";
+
+    const res = await fetch(WORKER_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "generate-image", prompt: finalPrompt })
+    });
+    if (!res.ok) throw new Error(`Worker ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    if (!data.imageBase64) throw new Error("AI 未回傳圖片");
+
+    const dataURL = `data:${data.mediaType || "image/png"};base64,${data.imageBase64}`;
+    const img = await loadImageFromURL(dataURL);
+    onImageReady(dataURL, img);
+
+    status.textContent = `✓ 已生成 ${enhancedNote}`;
+    status.className = "ai-status ok";
+  } catch (e) {
+    status.textContent = "✗ " + e.message;
+    status.className = "ai-status err";
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ============================================================
+// MISC
+// ============================================================
+$("show-dims").addEventListener("change", (e) => {
+  state.showDimensions = e.target.checked;
+  render();
+});
+
+$("btn-reset").addEventListener("click", () => {
+  Object.assign(state.border, DEFAULT_STATE.border);
+  Object.assign(state.mechanism, DEFAULT_STATE.mechanism);
+  state.fit = DEFAULT_STATE.fit;
+  state.cutBand = DEFAULT_STATE.cutBand;
+  state.simplify = DEFAULT_STATE.simplify;
+  state.vectorPaths = [];
+  state.sourceImage = null;
+  state.envelopeContour = null;
+  syncUIFromState();
+  $("img-preview-el").src = "";
+  $("img-loaded-group").style.display = "none";
+  $("process-group").style.display = "none";
+  $("img-input").value = "";
+  $("ai-gen-text").value = "";
+  render();
+});
+
+function syncUIFromState() {
+  updateMechDisplay();
+  $("r-w").value = state.border.w; $("v-w").textContent = `${state.border.w} mm`;
+  $("r-h").value = state.border.h; $("v-h").textContent = `${state.border.h} mm`;
+  $("r-mhw").value = state.mechanism.holeWidth; $("i-mhw").value = state.mechanism.holeWidth;
+  $("r-mhh").value = state.mechanism.holeHeight; $("i-mhh").value = state.mechanism.holeHeight;
+  $("r-meg").value = state.mechanism.edgeGap; $("i-meg").value = state.mechanism.edgeGap;
+  $("r-mko").value = state.mechanism.transitionRadius; $("i-mko").value = state.mechanism.transitionRadius;
+  $("r-osm").value = state.mechanism.envelopeOffset; $("v-osm").textContent = `${state.mechanism.envelopeOffset.toFixed(1)} mm`;
+  $("seg-spokes").querySelectorAll("button[data-v]").forEach(b =>
+    b.classList.toggle("active", parseInt(b.dataset.v, 10) === state.mechanism.spokes));
+  $("r-cb").value = state.cutBand; $("v-cb").textContent = state.cutBand > 0 ? `+${state.cutBand.toFixed(1)} mm` : `${state.cutBand.toFixed(1)} mm`;
+  $("r-sm").value = state.simplify; $("v-sm").textContent = `${state.simplify} mm`;
+  ["seg-source", "seg-fit"].forEach(id => {
+    const path = { "seg-source": state.source, "seg-fit": state.fit }[id];
+    $(id).querySelectorAll("button[data-v]").forEach(b => b.classList.toggle("active", b.dataset.v === path));
+  });
+}
+
+render();
+</script>
+</body>
+</html>

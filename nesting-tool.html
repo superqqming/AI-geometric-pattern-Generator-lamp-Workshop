@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>DXF 排版工具 — Lamp Pattern Studio</title>
+<style>
+  :root {
+    --bg: #14171c; --panel: #1f242c; --panel-2: #2a3038;
+    --text: #eaeef2; --text-dim: #9ca3af;
+    --accent: #f5b840; --line: #3a4048;
+    --ok: #5cb85c; --err: #e25555;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
+    background: var(--bg); color: var(--text); }
+  header { padding: 14px 20px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 12px; }
+  h1 { margin: 0; font-size: 16px; font-weight: 600; }
+  .subtle { color: var(--text-dim); font-size: 12px; }
+  .container { display: grid; grid-template-columns: 280px 1fr; gap: 0; min-height: calc(100vh - 53px); }
+  aside { background: var(--panel); padding: 18px; border-right: 1px solid var(--line); overflow-y: auto; }
+  main { padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .group { background: var(--panel-2); border-radius: 6px; padding: 12px; margin-bottom: 14px; }
+  .group h2 { margin: 0 0 10px; font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  .row { margin: 8px 0; }
+  .row label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 4px; }
+  .row input[type=number] { width: 100%; padding: 6px 8px; background: var(--panel); color: var(--text);
+    border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 13px; }
+  .row input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  .file-drop { border: 2px dashed var(--line); border-radius: 6px; padding: 20px; text-align: center;
+    cursor: pointer; font-size: 12px; color: var(--text-dim); transition: border-color 0.15s; }
+  .file-drop:hover { border-color: var(--accent); color: var(--text); }
+  .file-drop.loaded { border-color: var(--ok); color: var(--ok); }
+  button.primary { width: 100%; padding: 10px; background: var(--accent); color: #1a1a1a; border: none;
+    border-radius: 4px; font-weight: 600; cursor: pointer; font-family: inherit; font-size: 13px; }
+  button.primary:disabled { background: var(--panel); color: var(--text-dim); cursor: not-allowed; }
+  .status { font-size: 11px; padding: 6px 8px; border-radius: 4px; margin-top: 6px; background: var(--panel); }
+  .status.ok { color: var(--ok); }
+  .status.err { color: var(--err); }
+  #stage-wrap { background: #1a1d23; border-radius: 8px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+  #stage { display: block; background: #0c0e12; }
+  .stats { margin-top: 14px; display: flex; gap: 18px; font-size: 13px; color: var(--text-dim); }
+  .stats b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .empty-hint { color: var(--text-dim); font-size: 13px; text-align: center; padding: 60px 0; }
+  svg .sheet { fill: none; stroke: #555; stroke-width: 0.3; stroke-dasharray: 1 1; }
+  svg .pattern { fill: none; stroke: var(--accent); stroke-width: 0.25; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📐 DXF 排版工具</h1>
+  <span class="subtle">Sheet nesting · grid packing · auto-rotate</span>
+</header>
+
+<div class="container">
+  <aside>
+    <div class="group">
+      <h2>① 上傳 DXF</h2>
+      <div class="file-drop" id="drop">點此或拖曳 DXF 檔
+        <input type="file" id="file" accept=".dxf" hidden>
+      </div>
+      <div class="status" id="parse-status">尚未上傳</div>
+    </div>
+
+    <div class="group">
+      <h2>② 板材尺寸</h2>
+      <div class="row">
+        <label>板材 寬 (mm)</label>
+        <input type="number" id="sheet-w" min="50" max="2000" step="1" value="390">
+      </div>
+      <div class="row">
+        <label>板材 高 (mm)</label>
+        <input type="number" id="sheet-h" min="50" max="2000" step="1" value="297">
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>③ 排版參數</h2>
+      <div class="row">
+        <label>單元間距 (mm)</label>
+        <input type="number" id="margin" min="0" max="50" step="0.5" value="2">
+      </div>
+      <div class="row">
+        <label>最多複製數（上限）</label>
+        <input type="number" id="max-copies" min="1" max="100" step="1" value="6">
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>④ 輸出</h2>
+      <button class="primary" id="dl" disabled>⬇ 下載排版 DXF</button>
+      <div class="status" id="dl-status">先上傳 DXF</div>
+    </div>
+  </aside>
+
+  <main>
+    <div id="stage-wrap">
+      <svg id="stage" width="800" height="600" viewBox="-10 -10 410 317">
+        <text x="200" y="150" text-anchor="middle" fill="#666" font-size="10">⬅ 上傳 DXF 後預覽會出現在這裡</text>
+      </svg>
+    </div>
+    <div class="stats" id="stats" style="display:none">
+      <span>單元尺寸: <b id="s-bbox">—</b></span>
+      <span>板材: <b id="s-sheet">—</b></span>
+      <span>方向: <b id="s-rot">—</b></span>
+      <span>排版結果: <b id="s-count">—</b></span>
+    </div>
+  </main>
+</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+const state = {
+  entities: [],   // parsed DXF entities (POLYLINE with vertices)
+  bbox: null,     // bounding box of the whole pattern
+  fileName: ""    // original file name (used for output naming)
+};
+
+// ============================================================
+// DXF PARSER — supports POLYLINE and LWPOLYLINE
+// ============================================================
+function parseDXF(text) {
+  const lines = text.split(/\r?\n/);
+  const ents = [];
+  let i = 0;
+  function peek() { return [lines[i] && lines[i].trim(), lines[i+1] && lines[i+1].trim()]; }
+
+  while (i < lines.length - 1) {
+    const [code, val] = peek();
+
+    if (code === "0" && val === "POLYLINE") {
+      i += 2;
+      const ent = { type: "POLYLINE", layer: "PATTERN", closed: false, vertices: [] };
+      while (i < lines.length - 1) {
+        const [c, v] = peek();
+        if (c === "0" && v === "SEQEND") { i += 2; break; }
+        if (c === "0" && v === "VERTEX") {
+          i += 2;
+          const vert = { x: 0, y: 0 };
+          while (i < lines.length - 1) {
+            const [c2, v2] = peek();
+            if (c2 === "0") break;
+            if (c2 === "10") vert.x = parseFloat(v2);
+            else if (c2 === "20") vert.y = parseFloat(v2);
+            i += 2;
+          }
+          ent.vertices.push(vert);
+        } else {
+          if (c === "8") ent.layer = v;
+          else if (c === "70") ent.closed = (parseInt(v, 10) & 1) === 1;
+          i += 2;
+        }
+      }
+      if (ent.vertices.length >= 2) ents.push(ent);
+    }
+    else if (code === "0" && val === "LWPOLYLINE") {
+      i += 2;
+      const ent = { type: "POLYLINE", layer: "PATTERN", closed: false, vertices: [] };
+      let cur = null;
+      while (i < lines.length - 1) {
+        const [c, v] = peek();
+        if (c === "0") break;
+        if (c === "8") ent.layer = v;
+        else if (c === "70") ent.closed = (parseInt(v, 10) & 1) === 1;
+        else if (c === "10") { cur = { x: parseFloat(v), y: 0 }; }
+        else if (c === "20" && cur) { cur.y = parseFloat(v); ent.vertices.push(cur); cur = null; }
+        i += 2;
+      }
+      if (ent.vertices.length >= 2) ents.push(ent);
+    }
+    else {
+      i += 2;
+    }
+  }
+  return ents;
+}
+
+function computeBBox(entities) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const e of entities) for (const p of e.vertices) {
+    if (p.x < minX) minX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y > maxY) maxY = p.y;
+  }
+  if (!isFinite(minX)) return null;
+  return { minX, minY, maxX, maxY, w: maxX - minX, h: maxY - minY };
+}
+
+// ============================================================
+// LAYOUT — grid packing with 0° / 90° auto-pick
+// ============================================================
+function planLayout(W, H, sheetW, sheetH, margin, maxCopies) {
+  function fitGrid(itemW, itemH) {
+    const cols = Math.max(0, Math.floor((sheetW + margin) / (itemW + margin)));
+    const rows = Math.max(0, Math.floor((sheetH + margin) / (itemH + margin)));
+    return { cols, rows, count: cols * rows, itemW, itemH };
+  }
+  const f0  = { ...fitGrid(W, H), rotated: false };
+  const f90 = { ...fitGrid(H, W), rotated: true };
+  const picked = f90.count > f0.count ? f90 : f0;
+  picked.total = Math.min(picked.count, maxCopies);
+  return picked;
+}
+
+// 90° CCW rotation around (0,0) for normalized points, then shift back into [0, H] × [0, W] bbox.
+// Normalized (nx in [0, W], ny in [0, H]) → rotated (rx in [0, H], ry in [0, W]).
+function rotate90(nx, ny, W) { return { x: ny, y: W - nx }; }
+
+function transformPoint(p, bbox, col, row, layout, margin) {
+  let nx = p.x - bbox.minX;
+  let ny = p.y - bbox.minY;
+  if (layout.rotated) {
+    const r = rotate90(nx, ny, bbox.w);
+    nx = r.x; ny = r.y;
+  }
+  const cellX = col * (layout.itemW + margin);
+  const cellY = row * (layout.itemH + margin);
+  return { x: cellX + nx, y: cellY + ny };
+}
+
+// ============================================================
+// RENDER — preview SVG of the sheet + tiled copies
+// ============================================================
+function render() {
+  const svg = document.getElementById("stage");
+  const stats = document.getElementById("stats");
+  svg.innerHTML = "";
+
+  if (!state.bbox) {
+    svg.setAttribute("viewBox", "-10 -10 410 317");
+    const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    t.setAttribute("x", 200); t.setAttribute("y", 150);
+    t.setAttribute("text-anchor", "middle"); t.setAttribute("fill", "#666");
+    t.setAttribute("font-size", "10"); t.textContent = "⬅ 上傳 DXF 後預覽會出現在這裡";
+    svg.appendChild(t);
+    stats.style.display = "none";
+    document.getElementById("dl").disabled = true;
+    document.getElementById("dl-status").textContent = "先上傳 DXF";
+    document.getElementById("dl-status").className = "status";
+    return;
+  }
+
+  const sheetW = parseFloat(document.getElementById("sheet-w").value) || 390;
+  const sheetH = parseFloat(document.getElementById("sheet-h").value) || 297;
+  const margin = parseFloat(document.getElementById("margin").value) || 0;
+  const maxCopies = parseInt(document.getElementById("max-copies").value, 10) || 6;
+  const layout = planLayout(state.bbox.w, state.bbox.h, sheetW, sheetH, margin, maxCopies);
+
+  // Fit SVG viewBox to sheet with 10mm padding
+  const pad = 10;
+  svg.setAttribute("viewBox", `${-pad} ${-pad} ${sheetW + 2*pad} ${sheetH + 2*pad}`);
+  svg.setAttribute("width", 800);
+  svg.setAttribute("height", 800 * (sheetH + 2*pad) / (sheetW + 2*pad));
+
+  // Sheet boundary (reference, not a cut)
+  const sheet = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  sheet.setAttribute("x", 0); sheet.setAttribute("y", 0);
+  sheet.setAttribute("width", sheetW); sheet.setAttribute("height", sheetH);
+  sheet.setAttribute("class", "sheet");
+  svg.appendChild(sheet);
+
+  // Draw each copy
+  let placed = 0;
+  outer:
+  for (let row = 0; row < layout.rows; row++) {
+    for (let col = 0; col < layout.cols; col++) {
+      if (placed >= layout.total) break outer;
+      for (const e of state.entities) {
+        const pts = e.vertices.map(p => transformPoint(p, state.bbox, col, row, layout, margin));
+        if (pts.length < 2) continue;
+        let d = `M ${pts[0].x.toFixed(3)} ${pts[0].y.toFixed(3)}`;
+        for (let k = 1; k < pts.length; k++) d += ` L ${pts[k].x.toFixed(3)} ${pts[k].y.toFixed(3)}`;
+        if (e.closed) d += " Z";
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", d);
+        path.setAttribute("class", "pattern");
+        svg.appendChild(path);
+      }
+      placed++;
+    }
+  }
+
+  // Stats
+  stats.style.display = "flex";
+  document.getElementById("s-bbox").textContent = `${state.bbox.w.toFixed(1)} × ${state.bbox.h.toFixed(1)} mm`;
+  document.getElementById("s-sheet").textContent = `${sheetW} × ${sheetH} mm`;
+  document.getElementById("s-rot").textContent = layout.rotated ? "90° (旋轉)" : "0° (原方向)";
+  document.getElementById("s-count").textContent = `${layout.total} 份（${layout.cols}×${layout.rows} 排版、上限 ${maxCopies}）`;
+
+  // Enable download
+  document.getElementById("dl").disabled = layout.total === 0;
+  const ds = document.getElementById("dl-status");
+  if (layout.total === 0) { ds.textContent = "✗ 板材太小、放不下任何一份"; ds.className = "status err"; }
+  else { ds.textContent = `✓ 排了 ${layout.total} 份、可下載`; ds.className = "status ok"; }
+}
+
+// ============================================================
+// DXF OUTPUT
+// ============================================================
+function buildOutputDXF() {
+  const sheetW = parseFloat(document.getElementById("sheet-w").value) || 390;
+  const sheetH = parseFloat(document.getElementById("sheet-h").value) || 297;
+  const margin = parseFloat(document.getElementById("margin").value) || 0;
+  const maxCopies = parseInt(document.getElementById("max-copies").value, 10) || 6;
+  const layout = planLayout(state.bbox.w, state.bbox.h, sheetW, sheetH, margin, maxCopies);
+
+  const out = [];
+  out.push("0", "SECTION", "2", "HEADER", "9", "$INSUNITS", "70", "4", "0", "ENDSEC");
+  out.push("0", "SECTION", "2", "ENTITIES");
+
+  let placed = 0;
+  outer:
+  for (let row = 0; row < layout.rows; row++) {
+    for (let col = 0; col < layout.cols; col++) {
+      if (placed >= layout.total) break outer;
+      for (const e of state.entities) {
+        out.push("0", "POLYLINE", "8", e.layer, "66", "1", "70", e.closed ? "1" : "0");
+        for (const v of e.vertices) {
+          const p = transformPoint(v, state.bbox, col, row, layout, margin);
+          out.push("0", "VERTEX", "8", e.layer, "10", p.x.toFixed(4), "20", p.y.toFixed(4), "30", "0");
+        }
+        out.push("0", "SEQEND");
+      }
+      placed++;
+    }
+  }
+
+  out.push("0", "ENDSEC", "0", "EOF");
+  return out.join("\n");
+}
+
+function download(name, content) {
+  const blob = new Blob([content], { type: "application/dxf" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ============================================================
+// FILE HANDLING + UI WIRING
+// ============================================================
+const dropEl = document.getElementById("drop");
+const fileEl = document.getElementById("file");
+
+dropEl.addEventListener("click", () => fileEl.click());
+dropEl.addEventListener("dragover", e => { e.preventDefault(); dropEl.style.borderColor = "var(--accent)"; });
+dropEl.addEventListener("dragleave", () => { dropEl.style.borderColor = ""; });
+dropEl.addEventListener("drop", e => {
+  e.preventDefault(); dropEl.style.borderColor = "";
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileEl.addEventListener("change", () => { if (fileEl.files[0]) handleFile(fileEl.files[0]); });
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const entities = parseDXF(reader.result);
+      const bbox = computeBBox(entities);
+      const status = document.getElementById("parse-status");
+      if (!bbox || entities.length === 0) {
+        status.textContent = "✗ 沒解析到 POLYLINE entity";
+        status.className = "status err";
+        return;
+      }
+      state.entities = entities;
+      state.bbox = bbox;
+      state.fileName = file.name.replace(/\.dxf$/i, "");
+      dropEl.classList.add("loaded");
+      dropEl.textContent = `✓ ${file.name}`;
+      status.textContent = `已解析 ${entities.length} 個 entity、bbox ${bbox.w.toFixed(1)}×${bbox.h.toFixed(1)} mm`;
+      status.className = "status ok";
+      render();
+    } catch (err) {
+      const status = document.getElementById("parse-status");
+      status.textContent = "✗ 解析失敗：" + err.message;
+      status.className = "status err";
+    }
+  };
+  reader.readAsText(file);
+}
+
+["sheet-w", "sheet-h", "margin", "max-copies"].forEach(id => {
+  document.getElementById(id).addEventListener("input", render);
+});
+
+document.getElementById("dl").addEventListener("click", () => {
+  const dxf = buildOutputDXF();
+  const sheetW = document.getElementById("sheet-w").value;
+  const sheetH = document.getElementById("sheet-h").value;
+  download(`${state.fileName}_nested_${sheetW}x${sheetH}.dxf`, dxf);
+});
+
+render();
+</script>
+</body>
+</html>
