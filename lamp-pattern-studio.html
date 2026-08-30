@@ -240,7 +240,11 @@
         <button data-prompt="新藝術風植物線條 / 對稱">植物線條</button>
         <button data-prompt="星座 / 點與連線">星空</button>
       </div>
-      <button class="primary" id="btn-gen">🎨 生成圖片</button>
+      <div class="row" style="margin-top:8px">
+        <label>🔑 通關密語 <span style="font-size:11px;color:var(--text-dim)">(向老師索取)</span></label>
+        <input type="password" id="ai-code" placeholder="輸入密碼" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--text)">
+      </div>
+      <button class="primary" id="btn-gen" style="margin-top:8px">🎨 生成圖片</button>
       <div class="ai-status" id="gen-status">中文描述會由 Claude 改寫成英文後生圖（總共約 15-20 秒）</div>
     </div>
   </div>
@@ -1203,6 +1207,9 @@ $("btn-gen").addEventListener("click", async () => {
   if (!userPrompt) { status.textContent = "請先描述"; status.className = "ai-status err"; return; }
 
   btn.disabled = true;
+  const code = $("ai-code").value.trim();
+  // 記住密碼，下次不用再輸入
+  if (code) localStorage.setItem("lamp-access-code", code);
 
   try {
     // Step 1: Claude enhances the user's description
@@ -1216,7 +1223,7 @@ $("btn-gen").addEventListener("click", async () => {
       const enhResp = await fetch(WORKER_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "enhance-prompt", input: claudeInput })
+        body: JSON.stringify({ type: "enhance-prompt", input: claudeInput, code })
       });
       if (enhResp.ok) {
         const enhData = await enhResp.json();
@@ -1237,7 +1244,7 @@ $("btn-gen").addEventListener("click", async () => {
     const res = await fetch(WORKER_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "generate-image", prompt: finalPrompt })
+      body: JSON.stringify({ type: "generate-image", prompt: finalPrompt, code })
     });
     if (!res.ok) throw new Error(`Worker ${res.status}: ${await res.text()}`);
     const data = await res.json();
@@ -1304,6 +1311,10 @@ function syncUIFromState() {
     $(id).querySelectorAll("button[data-v]").forEach(b => b.classList.toggle("active", b.dataset.v === path));
   });
 }
+
+// 自動填入上次輸入的通關密語
+const savedCode = localStorage.getItem("lamp-access-code");
+if (savedCode) $("ai-code").value = savedCode;
 
 render();
 </script>
