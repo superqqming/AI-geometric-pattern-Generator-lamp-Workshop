@@ -333,11 +333,14 @@ function buildOutputDXF() {
 }
 
 function download(name, content) {
-  const blob = new Blob([content], { type: "application/dxf" });
-  const url = URL.createObjectURL(blob);
+  // Use data: URL instead of blob: URL — blob: downloads are silently
+  // blocked by Chrome / Safari when the page is opened via file:// protocol.
   const a = document.createElement("a");
-  a.href = url; a.download = name; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  a.href = "data:application/dxf;charset=utf-8," + encodeURIComponent(content);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 // ============================================================

@@ -335,15 +335,14 @@ downloadBtn.addEventListener('click', () => {
   const widthMm = parseFloat(widthSlider.value);
   const heightMm = parseFloat(heightSlider.value);
   const dxf = buildDXF(paths, canvas.width, canvas.height, widthMm, heightMm);
-  const blob = new Blob([dxf], { type: 'application/dxf' });
-  const url = URL.createObjectURL(blob);
+  // Use data: URL instead of blob: URL — blob: downloads are silently
+  // blocked by Chrome / Safari when the page is opened via file:// protocol.
   const a = document.createElement('a');
-  a.href = url;
+  a.href = "data:application/dxf;charset=utf-8," + encodeURIComponent(dxf);
   a.download = 'lamp-pattern.dxf';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
   statusEl.textContent = `已輸出 ${widthMm} × ${heightMm} mm`;
 });
 

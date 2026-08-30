@@ -1064,13 +1064,14 @@ function appendPolyline(lines, pts, closed, layer) {
 }
 
 function download(filename, content, mime) {
-  const blob = new Blob([content], { type: mime });
-  const url = URL.createObjectURL(blob);
+  // Use data: URL instead of blob: URL — blob: downloads are silently
+  // blocked by Chrome / Safari when the page is opened via file:// protocol.
   const a = document.createElement("a");
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click();
+  a.href = "data:" + mime + ";charset=utf-8," + encodeURIComponent(content);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
   document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 100);
 }
 
 $("btn-dxf").addEventListener("click", () => {
